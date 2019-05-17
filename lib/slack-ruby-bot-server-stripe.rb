@@ -1,0 +1,5 @@
+require 'slack-ruby-bot-server'
+require 'stripe'
+require 'slack-ruby-bot-server/stripe/version'
+require 'slack-ruby-bot-server/stripe/config'
+require 'slack-ruby-bot-server/stripe/lifecycle'
