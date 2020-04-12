@@ -8,6 +8,7 @@ when 'mongoid' then
 when 'activerecord' then
   gem 'activerecord', '~> 5.0.0'
   gem 'otr-activerecord', '~> 1.2.1'
+  gem 'virtus'
   gem 'cursor_pagination' # rubocop:disable Bundler/OrderedGems
   gem 'pg'
 when nil
@@ -27,6 +28,8 @@ group :development, :test do
   gem 'rake'
   gem 'rspec'
   gem 'rubocop', '0.81.0'
+  gem 'stripe-ruby-mock', '~> 2.4.1', require: 'stripe_mock'
+  gem 'timecop'
   gem 'vcr'
   gem 'webmock'
 end
