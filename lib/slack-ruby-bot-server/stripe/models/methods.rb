@@ -6,7 +6,7 @@ module SlackRubyBotServer
         extend ActiveModel::Callbacks
 
         included do
-          define_model_callbacks :trial_expiring, :subscription_expired, :unsubscribed
+          define_model_callbacks :trial_expiring, :subscription_expired, :subscription_past_due, :unsubscribed
           define_model_callbacks :subscribed, only: [:after]
           before_validation :update_subscribed_at
           before_validation :update_subscription_expired_at
@@ -27,6 +27,10 @@ module SlackRubyBotServer
 
           time_limit = Time.now - trial_duration
           created_at < time_limit
+        end
+
+        def trial_expired?
+          remaining_trial_days <= 0
         end
 
         def subscription_text(options = { include_admin_info: false })
@@ -70,7 +74,10 @@ module SlackRubyBotServer
           update_attributes!(
             subscribed: true,
             subscribed_at: Time.now.utc,
-            stripe_customer_id: customer['id']
+            stripe_customer_id: customer['id'],
+            subscription_expired_at: nil,
+            subscription_past_due_at: nil,
+            subscription_past_due_informed_at: nil
           )
 
           customer
@@ -138,15 +145,57 @@ module SlackRubyBotServer
           ].join(' ')
         end
 
+        def subscription_past_due_text
+          [
+            'Your subscription is past due.',
+            update_cc_text
+          ].join(' ')
+        end
+
+        def check_trial!
+          raise Errors::AlreadySubscribedError if subscribed?
+          return if remaining_trial_days > 3
+
+          trial_expiring!
+        end
+
+        def check_subscription!
+          raise Errors::NotSubscribedError unless subscribed?
+
+          stripe_customer.subscriptions.each do |subscription|
+            case subscription.status
+            when 'past_due'
+              subscription_past_due!
+            when 'canceled', 'unpaid'
+              subscription_expired!
+            end
+          end
+        end
+
         private
 
+        def subscription_past_due!
+          return unless subscribed?
+          return if subscription_past_due_at && (Time.now.utc < subscription_past_due_informed_at + 3.days)
+
+          run_callbacks :subscription_past_due do
+            # use subscription_past_due_text to tell users to update their cc
+            update_attributes!(
+              subscription_past_due_at: subscription_past_due_at || Time.now.utc,
+              subscription_past_due_informed_at: Time.now.utc
+            )
+          end
+        end
+
         def subscription_expired!
-          return unless subscription_expired?
           return if subscription_expired_at
 
           run_callbacks :subscription_expired do
             # use subscribe_text to tell users to (re)subscribe
-            update_attributes!(subscription_expired_at: Time.now.utc)
+            update_attributes!(
+              subscribed: false,
+              subscription_expired_at: Time.now.utc
+            )
           end
         end
 
@@ -154,15 +203,9 @@ module SlackRubyBotServer
           "Update your credit card info at #{root_url}/update_cc?team_id=#{team_id}."
         end
 
-        def trial_expiring?
+        def trial_expiring!
           return false if subscribed? || subscription_expired?
           return false if trial_informed_at && (Time.now.utc < trial_informed_at + 7.days)
-
-          true
-        end
-
-        def trial_expiring!
-          return unless trial_expiring?
 
           run_callbacks :trial_expiring do
             # use trial_text to inform users

@@ -52,6 +52,10 @@ class Team
     inform!(text: subscription_expired_text)
   end
 
+  after_subscription_past_due do
+    inform!(text: subscription_past_due_text)
+  end
+
   private
 
   def inform!(message)
@@ -117,6 +121,16 @@ A message to use upon subscription expiration.
 
 e.g. `Your subscription has expired. Subscribe your team at https://example.com?team_id=id.`
 
+#### subscription_past_due_text
+
+A message to use when paid subscription is past due.
+
+e.g. `Your subscription is past due. Update your credit card info at https://example.com?update_cc?team_id=id.`
+
+#### trial_expired?
+
+True if number of remaining trial days is zero. Will raise an error if a team is subscribed.
+
 #### remaining_trial_days
 
 Number of days remaining in the trial. Will raise an error if a team is subscribed.
@@ -152,6 +166,26 @@ Parameters are `stripe_token`, `stripe_email` and an optional `subscription_plan
 #### unsubscribe!
 
 Marks a Stripe subscription to be terminated at period end. Invokes `unsubscribed` callbacks.
+
+### Lifecycle Methods
+
+The following methods need to be routinely invoked by a cron.
+
+#### check_subscription!
+
+Unsubscribe teams that have canceled subscriptions or past due payments.
+
+```ruby
+Team.striped.each(&:check_subscription!)
+```
+
+#### check_trials!
+
+Notify teams that their trial is about to expire.
+
+```ruby
+Team.trials.each(&:check_trials!)
+````
 
 ### Copyright & License
 

@@ -13,6 +13,8 @@ module SlackRubyBotServer
           field :subscribed_at, type: DateTime
           field :subscription_expired_at, type: DateTime
           field :trial_informed_at, type: DateTime
+          field :subscription_past_due_at, type: DateTime
+          field :subscription_past_due_informed_at, type: DateTime
 
           scope :striped, -> { where(subscribed: true, :stripe_customer_id.ne => nil) }
           scope :trials, -> { where(subscribed: false) }
