@@ -30,29 +30,42 @@ end
 
 By default the configuration will use the values in the environment variables above.
 
-#### Implement Team Methods
+#### Implement Callbacks
 
-##### inform_everyone!(message)
+Use callbacks together with default `_text` methods to communicate subscription life cycle to your users.
 
-TODO: refactor into callbacks
+```ruby
+class Team
+  before_trial_expiring do
+    inform!(text: trial_text)
+  end
 
-Implement `Team#inform_everyone!(message = {})` that sends a Slack message to your team during trial expiration and on a successful subscription.
+  after_subscribed do
+    inform!(text: subscribed_text)
+  end
 
-##### subscribe_text
+  after_unsubscribed do
+    inform!(text: unsubscribed_text)
+  end
 
-TODO: refactor into config
+  after_subscription_expired do
+    inform!(text: subscription_expired_text)
+  end
 
-Subscription call out message.
+  private
 
-##### subscribed_text
-
-TODO: refactor into config
-
-Subscribed call out message.
+  def inform!(message)
+    slack_channels.each do |channel|
+      message_with_channel = message.merge(channel: channel['id'], as_user: true)
+      slack_client.chat_postMessage(message_with_channel)
+    end
+  end
+end
+```
 
 ### Attributes
 
-This extension adds the following public attributes to `Team`.
+The following public attributes are added to `Team`.
 
 #### stripe_customer_id
 
@@ -76,17 +89,37 @@ Timestamp for when the team was informed of a pending end of trial.
 
 Timestamp for when the trial ends. Will raise an error if a team is subscribed.
 
-#### trial_message
+### Methods
+
+The following public methods are added to `Team`.
+
+#### trial_text
 
 A message about the remaining trial period. Will raise an error if a team is subscribed.
+
+e.g. `Your trial subscription expires in 3 days. Subscribe your team at https://example.com?team_id=id.`
+
+#### subscribed_text
+
+A message upon successful subscription.
+
+e.g. `Your team has been subscribed.`
+
+#### unsubscribed_text
+
+A message to use when unsubscribed.
+
+e.g. `Your team has been unsubscribed. Subscribe your team at https://example.com?team_id=id.`
+
+#### subscription_expired_text
+
+A message to use upon subscription expiration.
+
+e.g. `Your subscription has expired. Subscribe your team at https://example.com?team_id=id.`
 
 #### remaining_trial_days
 
 Number of days remaining in the trial. Will raise an error if a team is subscribed.
-
-### Team Methods
-
-This extension adds the following public methods to `Team`.
 
 #### subscription_expired?
 
@@ -104,21 +137,21 @@ An active Stripe subscription, if any.
 
 Returns `true` if the team has an active Stripe subscription.
 
-#### subscription_info(params)
+#### subscription_text(params)
 
-Returns detailed subscription info or a trial message.
+Returns detailed subscription info or a trial message, typically used in a bot command.
 
 Pass `include_admin_info: true` to include detailed credit card on file information.
 
 #### subscribe!(params)
 
-Creates and returns a Stripe customer. Updates subscription fields.
+Creates and returns a Stripe customer. Updates subscription fields. Invokes `subscribed` callbacks.
 
 Parameters are `stripe_token`, `stripe_email` and an optional `subscription_plan_id`.
 
 #### unsubscribe!
 
-Marks a Stripe subscription to be terminated at period end.
+Marks a Stripe subscription to be terminated at period end. Invokes `unsubscribed` callbacks.
 
 ### Copyright & License
 

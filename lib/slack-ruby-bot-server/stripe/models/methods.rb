@@ -3,8 +3,11 @@ module SlackRubyBotServer
     module Models
       module Methods
         extend ActiveSupport::Concern
+        extend ActiveModel::Callbacks
 
         included do
+          define_model_callbacks :trial_expiring, :subscription_expired, :unsubscribed
+          define_model_callbacks :subscribed, only: [:after]
           before_validation :update_subscribed_at
           before_validation :update_subscription_expired_at
           after_update :subscribed!
@@ -26,29 +29,22 @@ module SlackRubyBotServer
           created_at < time_limit
         end
 
-        unless respond_to?(:inform_everyone!)
-          # TODO: every instance of this should be a callback instead
-          def inform_everyone!(_options)
-            raise NotImplementedError
-          end
-        end
-
-        def subscription_info(options = { include_admin_info: false })
-          subscription_info = []
+        def subscription_text(options = { include_admin_info: false })
+          subscription_text = []
           if active_stripe_subscription?
-            subscription_info << stripe_customer_text
-            subscription_info.concat(stripe_customer_subscriptions_info)
+            subscription_text << stripe_customer_text
+            subscription_text.concat(stripe_customer_subscriptions_info)
             if options[:include_admin_info]
-              subscription_info.concat(stripe_customer_invoices_info)
-              subscription_info.concat(stripe_customer_sources_info)
-              subscription_info << update_cc_text
+              subscription_text.concat(stripe_customer_invoices_info)
+              subscription_text.concat(stripe_customer_sources_info)
+              subscription_text << update_cc_text
             end
           elsif subscribed && subscribed_at
-            subscription_info << subscriber_text
+            subscription_text << subscriber_text
           else
-            subscription_info << trial_message
+            subscription_text << trial_text
           end
-          subscription_info.compact.join("\n")
+          subscription_text.compact.join("\n")
         end
 
         # params:
@@ -84,7 +80,9 @@ module SlackRubyBotServer
           raise Errors::NotSubscribedError unless subscribed?
           raise Errors::MissingStripeCustomerError unless active_stripe_subscription?
 
-          active_stripe_subscription.delete(at_period_end: true)
+          run_callbacks :unsubscribed do
+            active_stripe_subscription.delete(at_period_end: true)
+          end
         end
 
         def active_stripe_subscription?
@@ -111,7 +109,7 @@ module SlackRubyBotServer
           [0, (trial_ends_at.to_date - Time.now.utc.to_date).to_i].max
         end
 
-        def trial_message
+        def trial_text
           raise Errors::AlreadySubscribedError if subscribed?
 
           [
@@ -122,36 +120,54 @@ module SlackRubyBotServer
           ].join(' ')
         end
 
-        private
-
-        def subscription_expired!
-          return unless subscription_expired?
-          return if subscription_expired_at
-
-          inform_everyone!(text: subscribe_text)
-          update_attributes!(subscription_expired_at: Time.now.utc)
-        end
-
-        def update_cc_text
-          "Update your credit card info at #{root_url}/update_cc?team_id=#{team_id}."
+        def unsubscribed_text
+          [
+            'Your team has been unsubscribed.',
+            subscribe_text
+          ].join(' ')
         end
 
         def subscribed_text
           'Your team has been subscribed.'
         end
 
-        def inform_trial?
+        def subscription_expired_text
+          [
+            'Your subscription has expired.',
+            subscribe_text
+          ].join(' ')
+        end
+
+        private
+
+        def subscription_expired!
+          return unless subscription_expired?
+          return if subscription_expired_at
+
+          run_callbacks :subscription_expired do
+            # use subscribe_text to tell users to (re)subscribe
+            update_attributes!(subscription_expired_at: Time.now.utc)
+          end
+        end
+
+        def update_cc_text
+          "Update your credit card info at #{root_url}/update_cc?team_id=#{team_id}."
+        end
+
+        def trial_expiring?
           return false if subscribed? || subscription_expired?
           return false if trial_informed_at && (Time.now.utc < trial_informed_at + 7.days)
 
           true
         end
 
-        def inform_trial!
-          return unless inform_trial?
+        def trial_expiring!
+          return unless trial_expiring?
 
-          inform_everyone!(text: trial_message)
-          update_attributes!(trial_informed_at: Time.now.utc)
+          run_callbacks :trial_expiring do
+            # use trial_text to inform users
+            update_attributes!(trial_informed_at: Time.now.utc)
+          end
         end
 
         def stripe_customer
@@ -214,7 +230,9 @@ module SlackRubyBotServer
         def subscribed!
           return unless subscribed? && subscribed_changed?
 
-          inform_everyone!(text: subscribed_text)
+          run_callbacks :subscribed do
+            # use subscribed_text to inform users
+          end
         end
 
         def update_subscribed_at

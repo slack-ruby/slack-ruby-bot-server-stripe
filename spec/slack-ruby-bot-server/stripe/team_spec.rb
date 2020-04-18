@@ -10,18 +10,25 @@ describe SlackRubyBotServer::Stripe::Models do
   context '#subscription_expired!' do
     let(:team) { Fabricate(:team, created_at: 2.weeks.ago) }
     before do
-      expect(team).to receive(:inform_everyone!).with(text: "Subscribe your team at /subscribe?team_id=#{team.team_id}.")
+      allow(team).to receive(:_run_subscription_expired_callbacks).and_call_original
+      allow(team).to receive(:_run_subscribed_callbacks).and_call_original
       team.send(:subscription_expired!)
+    end
+    it 'has the correct subscribe text' do
+      expect(team.trial_text).to eq "Your trial subscription has expired. Subscribe your team at /subscribe?team_id=#{team.team_id}."
+    end
+    it 'invokes callbacks' do
+      expect(team).to have_received(:_run_subscription_expired_callbacks)
     end
     it 'sets subscription_expired_at' do
       expect(team.subscription_expired_at).to_not be nil
     end
     context '(re)subscribed' do
       before do
-        expect(team).to receive(:inform_everyone!).with(text: 'Your team has been subscribed.')
         team.update_attributes!(subscribed: true)
       end
       it 'resets subscription_expired_at' do
+        expect(team).to have_received(:_run_subscribed_callbacks)
         expect(team.subscription_expired_at).to be nil
       end
     end
@@ -52,44 +59,45 @@ describe SlackRubyBotServer::Stripe::Models do
       expect(team_created_1_week_ago.send(:remaining_trial_days)).to eq 6
       expect(team_created_3_weeks_ago.send(:remaining_trial_days)).to eq 0
     end
-    context '#inform_trial!' do
+    context '#trial_expiring!' do
       it 'subscribed' do
-        expect(subscribed_team).to_not receive(:inform_everyone!)
-        subscribed_team.send(:inform_trial!)
+        expect(subscribed_team).to_not receive(:_run_trial_expiring_callbacks)
+        subscribed_team.send(:trial_expiring!)
       end
       it '1 week ago' do
-        expect(team_created_1_week_ago).to receive(:inform_everyone!).with(
-          text: "Your trial subscription expires in 6 days. #{team_created_1_week_ago.send(:subscribe_text)}"
-        )
-        team_created_1_week_ago.send(:inform_trial!)
+        expect(team_created_1_week_ago).to receive(:_run_trial_expiring_callbacks).and_call_original
+        expect(team_created_1_week_ago.trial_text).to eq([
+          'Your trial subscription expires in 6 days.',
+          team_created_1_week_ago.send(:subscribe_text)
+        ].join(' '))
+        team_created_1_week_ago.send(:trial_expiring!)
       end
       it 'expired' do
-        expect(team_created_3_weeks_ago).to_not receive(:inform_everyone!)
-        team_created_3_weeks_ago.send(:inform_trial!)
+        expect(team_created_3_weeks_ago).to_not receive(:_run_trial_expiring_callbacks)
+        team_created_3_weeks_ago.send(:trial_expiring!)
       end
-      it 'informs once' do
-        expect(team_created_1_week_ago).to receive(:inform_everyone!).once
-        2.times { team_created_1_week_ago.send(:inform_trial!) }
+      it 'calls back trial expiring once' do
+        expect(team_created_1_week_ago).to receive(:_run_trial_expiring_callbacks).once.and_call_original
+        2.times { team_created_1_week_ago.send(:trial_expiring!) }
       end
     end
   end
-  context '#subscription_info' do
+  context '#subscription_text' do
     let(:team) { Fabricate(:team) }
     context 'on trial' do
       before do
         team.update_attributes!(subscribed: false, subscribed_at: nil)
       end
       it 'returns trial message' do
-        expect(team.subscription_info).to eq "Your trial subscription expires in 14 days. Subscribe your team at /subscribe?team_id=#{team.team_id}."
+        expect(team.subscription_text).to eq "Your trial subscription expires in 14 days. Subscribe your team at /subscribe?team_id=#{team.team_id}."
       end
     end
     context 'with subscribed_at' do
       before do
-        allow(team).to receive(:inform_everyone!)
         team.update_attributes!(subscribed: true)
       end
       it 'returns subscription info' do
-        expect(team.subscription_info).to eq "Subscriber since #{team.subscribed_at.strftime('%B %d, %Y')}."
+        expect(team.subscription_text).to eq "Subscriber since #{team.subscribed_at.strftime('%B %d, %Y')}."
       end
     end
     context 'with a plan' do
@@ -106,7 +114,6 @@ describe SlackRubyBotServer::Stripe::Models do
           )
         end
         before do
-          allow(team).to receive(:inform_everyone!)
           team.update_attributes!(subscribed: true, stripe_customer_id: customer['id'])
         end
         let(:card) { customer.sources.first }
@@ -123,14 +130,14 @@ describe SlackRubyBotServer::Stripe::Models do
             "Update your credit card info at /update_cc?team_id=#{team.team_id}."
           ]
         end
-        it 'returns subscription_info with admin info' do
-          expect(team.subscription_info(include_admin_info: true)).to eq [
+        it 'returns subscription_text with admin info' do
+          expect(team.subscription_text(include_admin_info: true)).to eq [
             customer_info,
             credit_card_info
           ].join("\n")
         end
-        it 'returns subscription_info without admin info' do
-          expect(team.subscription_info).to eq customer_info.join("\n")
+        it 'returns subscription_text without admin info' do
+          expect(team.subscription_text).to eq customer_info.join("\n")
         end
       end
     end
@@ -174,7 +181,7 @@ describe SlackRubyBotServer::Stripe::Models do
             domain: team.domain
           }
         ).and_return('id' => 'customer_id')
-        expect_any_instance_of(Team).to receive(:inform_everyone!).once
+        expect_any_instance_of(Team).to receive(:_run_subscribed_callbacks).once.and_call_original
         team.subscribe!(
           stripe_token: 'token',
           stripe_token_type: 'card',
@@ -194,16 +201,17 @@ describe SlackRubyBotServer::Stripe::Models do
       before do
         team.update_attributes!(subscribed: false, subscribed_at: nil)
       end
-      it 'displays all set message' do
+      it 'raises error and does not callback' do
+        expect(team).to_not receive(:_run_unsubscribed_callbacks)
         expect { team.unsubscribe! }.to raise_error SlackRubyBotServer::Stripe::Errors::NotSubscribedError
       end
     end
     context 'with subscribed_at' do
       before do
-        allow(team).to receive(:inform_everyone!)
         team.update_attributes!(subscribed: true, subscribed_at: 1.year.ago)
       end
       it 'cannot unsubscribe without a stripe customer' do
+        expect(team).to_not receive(:_run_unsubscribed_callbacks)
         expect { team.unsubscribe! }.to raise_error SlackRubyBotServer::Stripe::Errors::MissingStripeCustomerError
       end
     end
@@ -221,12 +229,12 @@ describe SlackRubyBotServer::Stripe::Models do
           )
         end
         before do
-          allow(team).to receive(:inform_everyone!)
           team.update_attributes!(subscribed: true, stripe_customer_id: customer['id'])
         end
         let(:active_subscription) { team.active_stripe_subscription }
         let(:current_period_end) { Time.at(active_subscription.current_period_end).strftime('%B %d, %Y') }
         it 'cancels auto-renew' do
+          expect(team).to receive(:_run_unsubscribed_callbacks).and_call_original
           expect(team.send(:stripe_auto_renew?)).to be true
           team.unsubscribe!
           team.reload
@@ -235,6 +243,50 @@ describe SlackRubyBotServer::Stripe::Models do
           expect(team.send(:stripe_auto_renew?)).to be false
         end
       end
+    end
+  end
+  context 'recommended text' do
+    let(:team_with_callbacks) do
+      Class.new(Team) do
+        def inform!(options = {})
+          raise options
+        end
+
+        before_trial_expiring do
+          inform!(text: trial_text)
+        end
+
+        after_subscribed do
+          inform!(text: subscribed_text)
+        end
+
+        after_unsubscribed do
+          inform!(text: unsubscribed_text)
+        end
+
+        after_subscription_expired do
+          inform!(text: subscription_expired_text)
+        end
+      end
+    end
+    subject do
+      team_with_callbacks.new(created_at: Time.now.utc, team_id: 'team_id')
+    end
+    it 'trial expiring' do
+      expect(subject).to receive(:inform!).with(text: 'Your trial subscription expires in 14 days. Subscribe your team at /subscribe?team_id=team_id.')
+      subject.send(:_run_trial_expiring_callbacks)
+    end
+    it 'subscribed' do
+      expect(subject).to receive(:inform!).with(text: 'Your team has been subscribed.')
+      subject.send(:_run_subscribed_callbacks)
+    end
+    it 'unsubscribed' do
+      expect(subject).to receive(:inform!).with(text: 'Your team has been unsubscribed. Subscribe your team at /subscribe?team_id=team_id.')
+      subject.send(:_run_unsubscribed_callbacks)
+    end
+    it 'subscription expired' do
+      expect(subject).to receive(:inform!).with(text: 'Your subscription has expired. Subscribe your team at /subscribe?team_id=team_id.')
+      subject.send(:_run_subscription_expired_callbacks)
     end
   end
 end
