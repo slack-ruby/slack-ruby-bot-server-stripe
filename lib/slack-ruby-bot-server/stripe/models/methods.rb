@@ -161,6 +161,7 @@ module SlackRubyBotServer
 
         def check_subscription!
           raise Errors::NotSubscribedError unless subscribed?
+          raise Errors::MissingStripeCustomerError unless stripe_customer
 
           stripe_customer.subscriptions.each do |subscription|
             case subscription.status
@@ -169,6 +170,14 @@ module SlackRubyBotServer
             when 'canceled', 'unpaid'
               subscription_expired!
             end
+          end
+        end
+
+        def check_stripe!
+          if subscribed? && active_stripe_subscription?
+            check_subscription!
+          elsif !subscribed?
+            check_trial!
           end
         end
 

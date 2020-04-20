@@ -169,7 +169,7 @@ Marks a Stripe subscription to be terminated at period end. Invokes `unsubscribe
 
 ### Lifecycle Methods
 
-The following methods need to be routinely invoked by a cron.
+The following methods are invoked before a team is started and from a daily lifecycle cron.
 
 #### check_subscription!
 

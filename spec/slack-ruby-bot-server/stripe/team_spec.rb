@@ -10,12 +10,11 @@ describe SlackRubyBotServer::Stripe::Models do
   context '#subscription_expired!' do
     let(:team) { Fabricate(:team, created_at: 2.weeks.ago, subscribed: true) }
     before do
-      allow(team).to receive(:_run_subscription_expired_callbacks).and_call_original
-      allow(team).to receive(:_run_subscribed_callbacks).and_call_original
+      allow(team).to receive(:run_callbacks).and_call_original
       team.send(:subscription_expired!)
     end
     it 'invokes callbacks' do
-      expect(team).to have_received(:_run_subscription_expired_callbacks)
+      expect(team).to have_received(:run_callbacks).with(:subscription_expired)
     end
     it 'sets subscription_expired_at' do
       expect(team.subscription_expired_at).to_not be nil
@@ -25,7 +24,7 @@ describe SlackRubyBotServer::Stripe::Models do
         team.update_attributes!(subscribed: true)
       end
       it 'resets subscription_expired_at' do
-        expect(team).to have_received(:_run_subscribed_callbacks)
+        expect(team).to have_received(:run_callbacks).with(:subscribed)
         expect(team.subscription_expired_at).to be nil
       end
     end
@@ -64,11 +63,11 @@ describe SlackRubyBotServer::Stripe::Models do
     end
     context '#trial_expiring!' do
       it 'subscribed' do
-        expect(subscribed_team).to_not receive(:_run_trial_expiring_callbacks)
+        expect(subscribed_team).to_not receive(:run_callbacks).with(:trial_expiring)
         subscribed_team.send(:trial_expiring!)
       end
       it '1 week ago' do
-        expect(team_created_1_week_ago).to receive(:_run_trial_expiring_callbacks).and_call_original
+        allow(team_created_1_week_ago).to receive(:run_callbacks).and_call_original
         expect(team_created_1_week_ago.trial_text).to eq([
           'Your trial subscription expires in 6 days.',
           team_created_1_week_ago.send(:subscribe_text)
@@ -76,12 +75,13 @@ describe SlackRubyBotServer::Stripe::Models do
         team_created_1_week_ago.send(:trial_expiring!)
       end
       it 'expired' do
-        expect(team_created_3_weeks_ago).to_not receive(:_run_trial_expiring_callbacks)
+        expect(team_created_3_weeks_ago).to_not receive(:run_callbacks).with(:trial_expiring)
         team_created_3_weeks_ago.send(:trial_expiring!)
       end
       it 'calls back trial expiring once' do
-        expect(team_created_1_week_ago).to receive(:_run_trial_expiring_callbacks).once.and_call_original
+        allow(team_created_1_week_ago).to receive(:run_callbacks).once.and_call_original
         2.times { team_created_1_week_ago.send(:trial_expiring!) }
+        expect(team_created_1_week_ago).to have_received(:run_callbacks).with(:trial_expiring).once
       end
     end
     context 'check_trial!' do
@@ -197,13 +197,14 @@ describe SlackRubyBotServer::Stripe::Models do
             domain: team.domain
           }
         ).and_return('id' => 'customer_id')
-        expect_any_instance_of(Team).to receive(:_run_subscribed_callbacks).once.and_call_original
+        allow(team).to receive(:run_callbacks).and_call_original
         team.subscribe!(
           stripe_token: 'token',
           stripe_token_type: 'card',
           stripe_email: 'user@example.com',
           subscription_plan_id: 'yearly'
         )
+        expect(team).to have_received(:run_callbacks).with(:subscribed).once
         team.reload
         expect(team.subscribed).to be true
         expect(team.subscribed_at).to_not be nil
@@ -218,7 +219,7 @@ describe SlackRubyBotServer::Stripe::Models do
         team.update_attributes!(subscribed: false, subscribed_at: nil)
       end
       it 'raises error and does not callback' do
-        expect(team).to_not receive(:_run_unsubscribed_callbacks)
+        expect(team).to_not receive(:run_callbacks).with(:unsubscribed)
         expect { team.unsubscribe! }.to raise_error SlackRubyBotServer::Stripe::Errors::NotSubscribedError
       end
     end
@@ -227,7 +228,7 @@ describe SlackRubyBotServer::Stripe::Models do
         team.update_attributes!(subscribed: true, subscribed_at: 1.year.ago)
       end
       it 'cannot unsubscribe without a stripe customer' do
-        expect(team).to_not receive(:_run_unsubscribed_callbacks)
+        expect(team).to_not receive(:run_callbacks).with(:unsubscribed)
         expect { team.unsubscribe! }.to raise_error SlackRubyBotServer::Stripe::Errors::MissingStripeCustomerError
       end
     end
@@ -250,7 +251,7 @@ describe SlackRubyBotServer::Stripe::Models do
         let(:active_subscription) { team.active_stripe_subscription }
         let(:current_period_end) { Time.at(active_subscription.current_period_end).strftime('%B %d, %Y') }
         it 'cancels auto-renew' do
-          expect(team).to receive(:_run_unsubscribed_callbacks).and_call_original
+          expect(team).to receive(:run_callbacks).with(:unsubscribed).and_call_original
           expect(team.send(:stripe_auto_renew?)).to be true
           team.unsubscribe!
           team.reload
@@ -268,7 +269,7 @@ describe SlackRubyBotServer::Stripe::Models do
         team.update_attributes!(subscribed: false, subscribed_at: nil)
       end
       it 'does not callback' do
-        expect(team).to_not receive(:_run_subscription_past_due_callbacks)
+        expect(team).to_not receive(:run_callbacks).with(:subscription_past_due)
         team.send(:subscription_past_due!)
       end
     end
@@ -282,7 +283,7 @@ describe SlackRubyBotServer::Stripe::Models do
         )
       end
       it 'will not notify again' do
-        expect(team).to_not receive(:_run_subscription_expired_callbacks)
+        expect(team).to_not receive(:run_callbacks).with(:subscription_expired)
         team.send(:subscription_past_due!)
       end
     end
@@ -296,9 +297,10 @@ describe SlackRubyBotServer::Stripe::Models do
         )
       end
       it 'will notify again and only update subscription_past_due_informed_at' do
-        expect(team).to receive(:_run_subscription_past_due_callbacks).and_call_original
+        allow(team).to receive(:run_callbacks).and_call_original
         team.send(:subscription_past_due!)
         expect(team.subscription_past_due_at).to_not eq team.subscription_past_due_informed_at
+        expect(team).to have_received(:run_callbacks).with(:subscription_past_due).once
       end
     end
   end
@@ -397,23 +399,23 @@ describe SlackRubyBotServer::Stripe::Models do
     end
     it 'trial expiring' do
       expect(subject).to receive(:inform!).with(text: 'Your trial subscription expires in 14 days. Subscribe your team at /subscribe?team_id=team_id.')
-      subject.send(:_run_trial_expiring_callbacks)
+      subject.send(:run_callbacks, :trial_expiring)
     end
     it 'subscribed' do
       expect(subject).to receive(:inform!).with(text: 'Your team has been subscribed.')
-      subject.send(:_run_subscribed_callbacks)
+      subject.send(:run_callbacks, :subscribed)
     end
     it 'unsubscribed' do
       expect(subject).to receive(:inform!).with(text: 'Your team has been unsubscribed. Subscribe your team at /subscribe?team_id=team_id.')
-      subject.send(:_run_unsubscribed_callbacks)
+      subject.send(:run_callbacks, :unsubscribed)
     end
     it 'subscription expired' do
       expect(subject).to receive(:inform!).with(text: 'Your subscription has expired. Subscribe your team at /subscribe?team_id=team_id.')
-      subject.send(:_run_subscription_expired_callbacks)
+      subject.send(:run_callbacks, :subscription_expired)
     end
     it 'subscription past due' do
       expect(subject).to receive(:inform!).with(text: 'Your subscription is past due. Update your credit card info at /update_cc?team_id=team_id.')
-      subject.send(:_run_subscription_past_due_callbacks)
+      subject.send(:run_callbacks, :subscription_past_due)
     end
   end
 end
