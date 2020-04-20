@@ -64,7 +64,7 @@ module SlackRubyBotServer
             plan: params[:subscription_plan_id] || SlackRubyBotServer::Stripe.config.subscription_plan_id,
             email: params[:stripe_email],
             metadata: {
-              id: _id,
+              id: id,
               team_id: team_id,
               name: name,
               domain: domain

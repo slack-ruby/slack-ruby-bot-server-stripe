@@ -30,6 +30,18 @@ end
 
 By default the configuration will use the values in the environment variables above.
 
+#### Database Schema
+
+Define additional fields on your database.
+
+##### Mongoid
+
+Additional fields from [models/mongoid.rb](lib/slack-ruby-bot-server/stripe/models/mongoid.rb) are automatically included.
+
+##### ActiveRecord
+
+Add migrations for additional fields from [activerecord/schema.rb](spec/database_adapters/activerecord/schema.rb).
+
 #### Implement Callbacks
 
 Use callbacks together with default `_text` methods to communicate subscription life cycle to your users.
