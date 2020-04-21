@@ -83,6 +83,18 @@ module SlackRubyBotServer
           customer
         end
 
+        # params:
+        # - stripe_token
+        def update_subscription!(params)
+          raise Errors::NotSubscribedError unless subscribed?
+          raise Errors::MissingStripeCustomerError unless active_stripe_subscription?
+
+          stripe_customer.source = params[:stripe_token]
+          stripe_customer.save
+
+          stripe_customer
+        end
+
         def unsubscribe!
           raise Errors::NotSubscribedError unless subscribed?
           raise Errors::MissingStripeCustomerError unless active_stripe_subscription?

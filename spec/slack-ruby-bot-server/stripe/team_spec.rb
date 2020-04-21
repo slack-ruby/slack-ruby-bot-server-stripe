@@ -117,44 +117,29 @@ describe SlackRubyBotServer::Stripe::Models do
       end
     end
     context 'with a plan' do
-      include_context :stripe_mock
-      before do
-        stripe_helper.create_plan(id: 'yearly', amount: 2999, name: 'Plan')
+      include_context :subscribed_team
+      let(:card) { customer.sources.first }
+      let(:current_period_end) { Time.at(customer.subscriptions.first.current_period_end).strftime('%B %d, %Y') }
+      let(:customer_info) do
+        [
+          "Customer since #{Time.at(customer.created).strftime('%B %d, %Y')}.",
+          "Subscribed to Plan ($29.99), will auto-renew on #{current_period_end}."
+        ]
       end
-      context 'a customer' do
-        let!(:customer) do
-          Stripe::Customer.create(
-            source: stripe_helper.generate_card_token,
-            plan: 'yearly',
-            email: 'user@example.com'
-          )
-        end
-        before do
-          team.update_attributes!(subscribed: true, stripe_customer_id: customer['id'])
-        end
-        let(:card) { customer.sources.first }
-        let(:current_period_end) { Time.at(customer.subscriptions.first.current_period_end).strftime('%B %d, %Y') }
-        let(:customer_info) do
-          [
-            "Customer since #{Time.at(customer.created).strftime('%B %d, %Y')}.",
-            "Subscribed to Plan ($29.99), will auto-renew on #{current_period_end}."
-          ]
-        end
-        let(:credit_card_info) do
-          [
-            "On file Visa card, #{card.name} ending with #{card.last4}, expires #{card.exp_month}/#{card.exp_year}.",
-            "Update your credit card info at /update_cc?team_id=#{team.team_id}."
-          ]
-        end
-        it 'returns subscription_text with admin info' do
-          expect(team.subscription_text(include_admin_info: true)).to eq [
-            customer_info,
-            credit_card_info
-          ].join("\n")
-        end
-        it 'returns subscription_text without admin info' do
-          expect(team.subscription_text).to eq customer_info.join("\n")
-        end
+      let(:credit_card_info) do
+        [
+          "On file Visa card, #{card.name} ending with #{card.last4}, expires #{card.exp_month}/#{card.exp_year}.",
+          "Update your credit card info at /update_cc?team_id=#{team.team_id}."
+        ]
+      end
+      it 'returns subscription_text with admin info' do
+        expect(team.subscription_text(include_admin_info: true)).to eq [
+          customer_info,
+          credit_card_info
+        ].join("\n")
+      end
+      it 'returns subscription_text without admin info' do
+        expect(team.subscription_text).to eq customer_info.join("\n")
       end
     end
   end
@@ -233,32 +218,43 @@ describe SlackRubyBotServer::Stripe::Models do
       end
     end
     context 'with a plan' do
-      include_context :stripe_mock
-      before do
-        stripe_helper.create_plan(id: 'yearly', amount: 2999, name: 'Plan')
+      include_context :subscribed_team
+      let(:active_subscription) { team.active_stripe_subscription }
+      let(:current_period_end) { Time.at(active_subscription.current_period_end).strftime('%B %d, %Y') }
+      it 'cancels auto-renew' do
+        expect(team).to receive(:run_callbacks).with(:unsubscribed).and_call_original
+        expect(team.send(:stripe_auto_renew?)).to be true
+        team.unsubscribe!
+        team.reload
+        expect(team.subscribed).to be true
+        expect(team.stripe_customer_id).to_not be nil
+        expect(team.send(:stripe_auto_renew?)).to be false
       end
-      context 'a customer' do
-        let!(:customer) do
-          Stripe::Customer.create(
-            source: stripe_helper.generate_card_token,
-            plan: 'yearly',
-            email: 'user@example.com'
-          )
-        end
-        before do
-          team.update_attributes!(subscribed: true, stripe_customer_id: customer['id'])
-        end
-        let(:active_subscription) { team.active_stripe_subscription }
-        let(:current_period_end) { Time.at(active_subscription.current_period_end).strftime('%B %d, %Y') }
-        it 'cancels auto-renew' do
-          expect(team).to receive(:run_callbacks).with(:unsubscribed).and_call_original
-          expect(team.send(:stripe_auto_renew?)).to be true
-          team.unsubscribe!
-          team.reload
-          expect(team.subscribed).to be true
-          expect(team.stripe_customer_id).to_not be nil
-          expect(team.send(:stripe_auto_renew?)).to be false
-        end
+    end
+  end
+  context '#update_subscription!' do
+    context 'unsubscribed team' do
+      let!(:team) { Fabricate(:team, subscribed: false) }
+      it 'raises error' do
+        expect do
+          team.update_subscription!(stripe_token: 'token')
+        end.to raise_error SlackRubyBotServer::Stripe::Errors::NotSubscribedError
+      end
+    end
+    context 'subscribed team without a stripe customer id' do
+      let!(:team) { Fabricate(:team, subscribed: true, stripe_customer_id: nil) }
+      it 'raises error' do
+        expect do
+          team.update_subscription!(stripe_token: 'token')
+        end.to raise_error SlackRubyBotServer::Stripe::Errors::MissingStripeCustomerError
+      end
+    end
+    context 'subscribed team' do
+      include_context :subscribed_team
+      it 'updates subscription' do
+        expect(team.send(:stripe_customer)).to receive(:save)
+        customer = team.update_subscription!(stripe_token: 'token')
+        expect(customer.source).to eq 'token'
       end
     end
   end
@@ -312,56 +308,40 @@ describe SlackRubyBotServer::Stripe::Models do
       end
     end
     context 'with a plan' do
-      let(:team) { Fabricate(:team, subscribed: false) }
-      include_context :stripe_mock
-      before do
-        stripe_helper.create_plan(id: 'yearly', amount: 2999, name: 'Plan')
+      include_context :subscribed_team
+      it 'checks subscription' do
+        expect(team).to_not receive(:subscription_past_due!)
+        expect(team).to_not receive(:subscription_expired!)
+        team.check_subscription!
       end
-      context 'a customer' do
-        let!(:customer) do
-          Stripe::Customer.create(
-            source: stripe_helper.generate_card_token,
-            plan: 'yearly',
-            email: 'user@example.com'
-          )
-        end
+      context 'with a past due subscription' do
         before do
-          team.update_attributes!(subscribed: true, stripe_customer_id: customer['id'])
+          team.send(:stripe_customer).subscriptions.first.status = 'past_due'
         end
-        it 'checks subscription' do
-          expect(team).to_not receive(:subscription_past_due!)
+        it 'invokes' do
+          expect(team).to receive(:subscription_past_due!).and_call_original
           expect(team).to_not receive(:subscription_expired!)
           team.check_subscription!
         end
-        context 'with a past due subscription' do
-          before do
-            team.send(:stripe_customer).subscriptions.first.status = 'past_due'
-          end
-          it 'invokes' do
-            expect(team).to receive(:subscription_past_due!).and_call_original
-            expect(team).to_not receive(:subscription_expired!)
-            team.check_subscription!
-          end
+      end
+      context 'with an unpaid subscription' do
+        before do
+          team.send(:stripe_customer).subscriptions.first.status = 'unpaid'
         end
-        context 'with an unpaid subscription' do
-          before do
-            team.send(:stripe_customer).subscriptions.first.status = 'unpaid'
-          end
-          it 'invokes' do
-            expect(team).to_not receive(:subscription_past_due!)
-            expect(team).to receive(:subscription_expired!).and_call_original
-            team.check_subscription!
-          end
+        it 'invokes' do
+          expect(team).to_not receive(:subscription_past_due!)
+          expect(team).to receive(:subscription_expired!).and_call_original
+          team.check_subscription!
         end
-        context 'with a canceled subscription' do
-          before do
-            team.send(:stripe_customer).subscriptions.first.status = 'canceled'
-          end
-          it 'invokes' do
-            expect(team).to_not receive(:subscription_past_due!)
-            expect(team).to receive(:subscription_expired!).and_call_original
-            team.check_subscription!
-          end
+      end
+      context 'with a canceled subscription' do
+        before do
+          team.send(:stripe_customer).subscriptions.first.status = 'canceled'
+        end
+        it 'invokes' do
+          expect(team).to_not receive(:subscription_past_due!)
+          expect(team).to receive(:subscription_expired!).and_call_original
+          team.check_subscription!
         end
       end
     end

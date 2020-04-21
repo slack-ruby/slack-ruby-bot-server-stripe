@@ -179,6 +179,12 @@ Parameters are `stripe_token`, `stripe_email` and an optional `subscription_plan
 
 Marks a Stripe subscription to be terminated at period end. Invokes `unsubscribed` callbacks.
 
+#### update_subscription!(params)
+
+Updates a Stripe customer.
+
+Parameters are `stripe_token` for the new payment instrument.
+
 ### Lifecycle Methods
 
 The following methods are invoked before a team is started and from a daily lifecycle cron.
