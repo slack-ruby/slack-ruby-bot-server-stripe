@@ -39,7 +39,7 @@ describe SlackRubyBotServer::Stripe::Api::Endpoints::SubscriptionsEndpoint do
             plan: 'plan',
             email: 'foo@bar.com',
             metadata: {
-              id: team._id,
+              id: team.id,
               team_id: team.team_id,
               name: team.name,
               domain: team.domain
