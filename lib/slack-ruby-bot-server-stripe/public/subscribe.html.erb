@@ -17,7 +17,7 @@
         <script
           src="https://checkout.stripe.com/checkout.js"
           class="stripe-button"
-          data-key="<%= ENV['STRIPE_API_PUBLISHABLE_KEY'] %>"
+          data-key="<%= SlackRubyBotServer::Stripe.config.stripe_api_publishable_key %>"
           data-image='/img/icon.png'
           data-label='<%= team && team.subscribed? ? "Update Credit Card" : "Pay With Card" %>'
           data-locale="auto">
@@ -46,7 +46,7 @@
           }
 
           var handler = StripeCheckout.configure({
-            key: '<%= ENV['STRIPE_API_PUBLISHABLE_KEY'] %>',
+            key: '<%= SlackRubyBotServer::Stripe.config.stripe_api_publishable_key %>',
             image: '/img/icon.png',
             locale: 'auto',
             allowRememberMe: false,

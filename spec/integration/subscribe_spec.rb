@@ -11,25 +11,31 @@ describe 'Subscribe', js: true, type: :feature do
     end
   end
   context 'stripe' do
-    let!(:team) { Fabricate(:team) }
     before do
-      ENV['STRIPE_API_PUBLISHABLE_KEY'] = 'pk_test_804U1vUeVeTxBl8znwriXskf'
-      SlackRubyBotServer::Stripe.config.subscription_plan_id = 'plan-id'
-      SlackRubyBotServer::Stripe.config.subscription_plan_amount = 3999
-    end
-    after do
-      ENV.delete 'STRIPE_API_PUBLISHABLE_KEY'
+      SlackRubyBotServer::Stripe.configure do |config|
+        config.stripe_api_publishable_key = 'pk_test_804U1vUeVeTxBl8znwriXskf'
+        config.subscription_plan_id = 'prod_HAd97WaHg4XxNM'
+        config.subscription_plan_amount = 3999
+      end
     end
     context 'not subscribed' do
+      let!(:team) { Fabricate(:team) }
       it 'subscribes team' do
         visit "/subscribe?team_id=#{team.team_id}"
         expect(find('#messages')).to have_text("Subscribe team #{team.name} for $39.99 a year.")
 
         find('#subscribe', visible: true)
 
-        expect(Stripe::Customer).to receive(:create).with(
-          hash_including(plan: 'plan-id')
-        ).and_return('id' => 'customer_id')
+        expect_any_instance_of(Team).to receive(:subscribe!).with(
+          hash_including(
+            stripe_email: 'foo@bar.com',
+            stripe_token_type: 'card',
+            stripe_token: /tok.*/,
+            team_id: team.team_id
+          )
+        ).and_return(
+          'stripe_customer_id' => 'customer_id'
+        )
 
         find('.stripe-button-el').click
 
@@ -48,36 +54,30 @@ describe 'Subscribe', js: true, type: :feature do
 
         find('#subscribe', visible: false)
         expect(find('#messages')).to have_text("Team #{team.name} successfully subscribed.")
-
-        team.reload
-        expect(team.subscribed).to be true
-        expect(team.stripe_customer_id).to eq 'customer_id'
       end
     end
     context 'subscribed' do
-      include_context :stripe_mock
-      before do
-        stripe_helper.create_plan(id: 'yearly', amount: 3999)
-        customer = Stripe::Customer.create(
-          source: stripe_helper.generate_card_token,
-          plan: 'yearly',
-          email: 'foo@bar.com'
-        )
-        team.update_attributes!(subscribed: true, stripe_customer_id: customer['id'])
-      end
+      let!(:team) { Fabricate(:team, subscribed: true, stripe_customer_id: 'stripe-customer-id') }
       it 'updates cc' do
         visit "/subscribe?team_id=#{team.team_id}"
         expect(find('#messages')).to have_text("Update credit card for team #{team.name}.")
+
         find('.stripe-button-el').click
+
         sleep 1
+
         stripe_iframe = all('iframe[name=stripe_checkout_app]').last
 
-        expect_any_instance_of(Team).to receive(:update_subscription!).with(hash_including(
-                                                                              stripe_email: 'foo@bar.com',
-                                                                              stripe_token_type: 'card',
-                                                                              stripe_token: /tok.*/,
-                                                                              team_id: team.team_id
-                                                                            )).and_return('stripe_customer_id' => 'customer_id')
+        expect_any_instance_of(Team).to receive(:update_subscription!).with(
+          hash_including(
+            stripe_email: 'foo@bar.com',
+            stripe_token_type: 'card',
+            stripe_token: /tok.*/,
+            team_id: team.team_id
+          )
+        ).and_return(
+          'stripe_customer_id' => 'customer_id'
+        )
 
         Capybara.within_frame stripe_iframe do
           page.find_field('Email').set 'foo@bar.com'
