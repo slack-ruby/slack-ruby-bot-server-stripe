@@ -1,1 +1,1 @@
-require_relative 'endpoints/subscription_endpoint'
+require_relative 'endpoints/subscriptions_endpoint'

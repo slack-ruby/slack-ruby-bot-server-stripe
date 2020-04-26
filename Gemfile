@@ -23,6 +23,7 @@ gemspec
 
 group :development, :test do
   gem 'bundler'
+  gem 'capybara'
   gem 'database_cleaner'
   gem 'fabrication'
   gem 'faker'
@@ -31,6 +32,7 @@ group :development, :test do
   gem 'rake'
   gem 'rspec'
   gem 'rubocop', '0.81.0'
+  gem 'selenium-webdriver'
   gem 'stripe-ruby-mock', '~> 2.4.1', require: 'stripe_mock'
   gem 'timecop'
   gem 'vcr'

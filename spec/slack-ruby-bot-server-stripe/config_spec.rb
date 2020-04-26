@@ -32,6 +32,7 @@ describe SlackRubyBotServer::Stripe::Config do
   %i[
     stripe_api_publishable_key
     subscription_plan_id
+    subscription_plan_amount
     trial_duration
     root_url
   ].each do |k|

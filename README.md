@@ -218,23 +218,15 @@ Parameters are `stripe_token` for the new payment instrument.
 
 ### Lifecycle Methods
 
-The following methods are invoked before a team is started and from a daily lifecycle cron.
+The following methods are invoked before a team is started and from a daily lifecycle cron via `Team#check_stripe!`.
 
 #### check_subscription!
 
-Unsubscribe teams that have canceled subscriptions or past due payments.
-
-```ruby
-Team.striped.each(&:check_subscription!)
-```
+Invoked for subscribed teams, unsubscribes teams that have canceled subscriptions or past due payments.
 
 #### check_trials!
 
-Notify teams that their trial is about to expire.
-
-```ruby
-Team.trials.each(&:check_trials!)
-````
+Invoked for teams during trial. Notify teams that their trial is about to expire.
 
 ### API Endpoints
 
@@ -242,7 +234,13 @@ This extension adds the following API endpoints.
 
 #### POST /subscriptions
 
-Creates a subscription for a team using a payment method tokenized by Stripe. See [subscription_endpoint.rb](lib/slack-ruby-bot-server-stripe/api/endpoints/subscription_endpoint.rb) for details.
+Creates or updates a subscription for a team, using a payment method tokenized by Stripe. See [subscription_endpoint.rb](lib/slack-ruby-bot-server-stripe/api/endpoints/subscription_endpoint.rb) for details.
+
+### HTML Views
+
+#### /subscribe
+
+This extension adds a [subscription page](slack-ruby-bot-server-stripe/public/subscribe.html.erb) that handles initial subscriptions and credit card updates. Clone the page into your own project's `public/subscribe.html.erb` to customize.
 
 ### Copyright & License
 

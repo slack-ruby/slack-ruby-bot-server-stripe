@@ -1,0 +1,99 @@
+<html>
+  <head>
+    <title>Slack Ruby Bot Server (Stripe): Subscribe</title>
+    <script src="/scripts/jquery-1.7.1.min.js"></script>
+    <script src="/scripts/url.min.js"></script>
+    <script src="/scripts/messages.js"></script>
+    <script src='https://checkout.stripe.com/checkout.js'></script>
+    <% team = Team.where(team_id: request['team_id']).first %>
+  </head>
+  <body style="text-align: center">
+    <p>
+      <img src='img/slack.png' width="120px">
+    </p>
+    <p id='messages' />
+    <p id='subscribe'>
+      <form action="" method="POST">
+        <script
+          src="https://checkout.stripe.com/checkout.js"
+          class="stripe-button"
+          data-key="<%= ENV['STRIPE_API_PUBLISHABLE_KEY'] %>"
+          data-image='/img/icon.png'
+          data-label='<%= team && team.subscribed? ? "Update Credit Card" : "Pay With Card" %>'
+          data-locale="auto">
+        </script>
+      </form>
+      <p>
+        <img src='/img/stripe.png' width='119' height='26'></img>
+      </p>
+      <script>
+        $(document).ready(function() {
+
+          var team = {
+            id: '<%= team && team.team_id %>',
+            name: '<%= team && team.name %>',
+            subscribed: <%= !!(team && team.subscribed) %>,
+          }
+
+          if (team.subscribed) {
+            SlackRubyBotServer.message('Update credit card for team <b>' + team.name + '</b>.');
+          } else if (team.id && team.name) {
+            <% subscription_plan_amount_s = '%.2f' % (SlackRubyBotServer::Stripe.config.subscription_plan_amount.to_f / 100) %>
+            SlackRubyBotServer.message('Subscribe team <b>' + team.name + '</b> for $<%= subscription_plan_amount_s %> a year.');
+          } else {
+            // $('.stripe-button-el').remove();
+            SlackRubyBotServer.message('Missing or invalid team ID.');
+          }
+
+          var handler = StripeCheckout.configure({
+            key: '<%= ENV['STRIPE_API_PUBLISHABLE_KEY'] %>',
+            image: '/img/icon.png',
+            locale: 'auto',
+            allowRememberMe: false,
+            token: function(token) {
+              $.ajax({
+                type: 'POST',
+                url: '/api/subscriptions',
+                data: {
+                  stripe_email: token.email,
+                  stripe_token: token.id,
+                  stripe_token_type: token.type,
+                  team_id: team.id
+                },
+                success: function(data) {
+                  if (team.subscribed) {
+                    SlackRubyBotServer.message('Credit card for team <b>' + team.name + '</b> successfully updated.');
+                  } else {
+                    SlackRubyBotServer.message('Team <b>' + team.name + '</b> successfully subscribed.');
+                  }
+                  $('.stripe-button-el').remove();
+                },
+                error: SlackRubyBotServer.error
+              });
+            }
+          });
+
+          $('.stripe-button-el').on('click', function(e) {
+            var amount = <%= SlackRubyBotServer::Stripe.config.subscription_plan_amount %>;
+            handler.open({
+              name: '<%= SlackRubyBotServer::Stripe.config.subscription_plan_id %>',
+              description: 'Subscription',
+              amount: amount
+            });
+            e.preventDefault();
+          });
+
+          $(window).on('popstate', function() {
+            handler.close();
+          });
+        });
+
+      </script>
+    </p>
+    <p>
+      <small>
+        made by <a href="https://twitter.com/dblockdotorg" target="_blank">@dblockdotorg</a>, <a href="https://github.com/slack-ruby/slack-ruby-bot-server-stripe" target="_blank">fork me on github</a>
+      </small>
+    </p>
+  </body>
+</html>
