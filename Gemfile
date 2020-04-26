@@ -26,6 +26,7 @@ group :development, :test do
   gem 'database_cleaner'
   gem 'fabrication'
   gem 'faker'
+  gem 'hyperclient'
   gem 'rack-test'
   gem 'rake'
   gem 'rspec'

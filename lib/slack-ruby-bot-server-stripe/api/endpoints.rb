@@ -1,0 +1,1 @@
+require_relative 'endpoints/subscription_endpoint'

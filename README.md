@@ -18,13 +18,15 @@ gem 'slack-ruby-bot-server-stripe'
 
 #### Configure
 
+Configure your app, typically via `config/initializers/slack_ruby_bot_server_stripe.rb`.
+
 ```ruby
 SlackRubyBotServer::Stripe.configure do |config|
   config.stripe_api_key = ENV['STRIPE_API_KEY'] # Stripe API key
   config.stripe_api_publishable_key = ENV['STRIPE_API_PUBLISHABLE_KEY'] # Stripe publishable API key
   config.subscription_plan_id = ENV['STRIPE_SUBSCRIPTION_PLAN_ID'] # Stripe subscription plan ID
   config.trial_duration = 2.weeks # Trial duration
-  config.root_url = ENV['URL'] # Bot root of subscription info links
+  config.root_url = ENV['URL'] || 'http://localhost:5000' # Bot root of subscription info links
 end
 ```
 
@@ -44,7 +46,7 @@ Add migrations for additional fields from [activerecord/schema.rb](spec/database
 
 #### Implement Callbacks
 
-Use callbacks together with default `_text` methods to communicate subscription life cycle to your users.
+Use callbacks together with default `_text` methods to communicate subscription life cycle to your users. These are typically added by creating `lib/models/team.rb`.
 
 ```ruby
 class Team
@@ -79,9 +81,38 @@ class Team
 end
 ```
 
+#### Add Trial Link
+
+Your bot's help command should display trial text and subscription link. This is typically done in `lib/commands/help.rb`.
+
+```ruby
+class Help < SlackRubyBot::Commands::Base
+  HELP = <<-EOS.freeze
+```
+Sample bot.
+
+General
+-------
+
+help               - get this helpful message
+
+```
+EOS
+
+  def self.call(client, data, _match)
+    client.say(channel: data.channel, text: [
+      HELP,
+      client.owner.reload.subscribed? ? nil : client.owner.trial_text
+    ].compact.join("\n"))
+
+    client.say(channel: data.channel, gif: 'help')
+  end
+end
+```
+
 ### Attributes
 
-The following public attributes are added to `Team`.
+This library adds the following public attributes to the `Team` class.
 
 #### stripe_customer_id
 
@@ -204,6 +235,14 @@ Notify teams that their trial is about to expire.
 ```ruby
 Team.trials.each(&:check_trials!)
 ````
+
+### API Endpoints
+
+This extension adds the following API endpoints.
+
+#### POST /subscriptions
+
+Creates a subscription for a team using a payment method tokenized by Stripe. See [subscription_endpoint.rb](lib/slack-ruby-bot-server-stripe/api/endpoints/subscription_endpoint.rb) for details.
 
 ### Copyright & License
 
