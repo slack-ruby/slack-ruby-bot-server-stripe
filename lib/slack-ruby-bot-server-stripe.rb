@@ -6,6 +6,7 @@ require_relative 'slack-ruby-bot-server-stripe/errors'
 require_relative 'slack-ruby-bot-server-stripe/models'
 require_relative 'slack-ruby-bot-server-stripe/lifecycle'
 require_relative 'slack-ruby-bot-server-stripe/api'
+require_relative 'slack-ruby-bot-server-stripe/commands'
 
 require 'slack-ruby-bot-server'
 

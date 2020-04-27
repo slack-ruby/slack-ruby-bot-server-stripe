@@ -6,6 +6,10 @@ Slack Ruby Bot Server Stripe Extension
 
 A model extension to [slack-ruby-bot-server](https://github.com/slack-ruby/slack-ruby-bot-server) that enables trials and paid subscriptions for your bots using [Stripe](https://stripe.com).
 
+### Sample
+
+See [slack-ruby/slack-ruby-bot-server-stripe-sample](https://github.com/slack-ruby/slack-ruby-bot-server-stripe-sample) for a working sample.
+
 ### Usage
 
 #### Gemfile
@@ -71,6 +75,19 @@ class Team
   end
 
   private
+
+  def slack_client
+    @slack_client ||= Slack::Web::Client.new(token: token)
+  end
+
+  def slack_channels
+    slack_client.channels_list(
+      exclude_archived: true,
+      exclude_members: true
+    )['channels'].select do |channel|
+      channel['is_member']
+    end
+  end
 
   def inform!(message)
     slack_channels.each do |channel|
@@ -241,6 +258,18 @@ Creates or updates a subscription for a team, using a payment method tokenized b
 #### /subscribe
 
 This extension adds a [subscription page](slack-ruby-bot-server-stripe/public/subscribe.html.erb) that handles initial subscriptions and credit card updates. Clone the page into your own project's `public/subscribe.html.erb` to customize.
+
+### Slack Commands
+
+This extension adds the following Slack commands.
+
+#### subscription
+
+Displays current subscription information, see [subscription.rb](lib/slack-ruby-bot-server-stripe/commands/subscription.rb). This command also displays partial credit card information to the user that has installed the bot.
+
+#### unsubscribe
+
+Turns off auto-renew for the current subscription, see [unsubscribe.rb](lib/slack-ruby-bot-server-stripe/commands/unsubscribe.rb). This command will only succeed when run by the user that has installed the bot.
 
 ### Copyright & License
 

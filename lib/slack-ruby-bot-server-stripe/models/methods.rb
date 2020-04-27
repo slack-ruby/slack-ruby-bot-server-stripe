@@ -101,6 +101,7 @@ module SlackRubyBotServer
 
           run_callbacks :unsubscribed do
             active_stripe_subscription.delete(at_period_end: true)
+            update_attributes!(subscribed: false, stripe_customer_id: nil)
           end
         end
 
@@ -221,7 +222,7 @@ module SlackRubyBotServer
         end
 
         def update_cc_text
-          "Update your credit card info at #{root_url}/update_cc?team_id=#{team_id}."
+          "Update your credit card info at #{root_url}/subscribe?team_id=#{team_id}."
         end
 
         def trial_expiring!

@@ -129,7 +129,7 @@ describe SlackRubyBotServer::Stripe::Models do
       let(:credit_card_info) do
         [
           "On file Visa card, #{card.name} ending with #{card.last4}, expires #{card.exp_month}/#{card.exp_year}.",
-          "Update your credit card info at /update_cc?team_id=#{team.team_id}."
+          "Update your credit card info at /subscribe?team_id=#{team.team_id}."
         ]
       end
       it 'returns subscription_text with admin info' do
@@ -219,16 +219,12 @@ describe SlackRubyBotServer::Stripe::Models do
     end
     context 'with a plan' do
       include_context :subscribed_team
-      let(:active_subscription) { team.active_stripe_subscription }
-      let(:current_period_end) { Time.at(active_subscription.current_period_end).strftime('%B %d, %Y') }
       it 'cancels auto-renew' do
-        expect(team).to receive(:run_callbacks).with(:unsubscribed).and_call_original
         expect(team.send(:stripe_auto_renew?)).to be true
         team.unsubscribe!
         team.reload
-        expect(team.subscribed).to be true
-        expect(team.stripe_customer_id).to_not be nil
-        expect(team.send(:stripe_auto_renew?)).to be false
+        expect(team.subscribed).to be false
+        expect(team.stripe_customer_id).to be_nil
       end
     end
   end
@@ -394,7 +390,7 @@ describe SlackRubyBotServer::Stripe::Models do
       subject.send(:run_callbacks, :subscription_expired)
     end
     it 'subscription past due' do
-      expect(subject).to receive(:inform!).with(text: 'Your subscription is past due. Update your credit card info at /update_cc?team_id=team_id.')
+      expect(subject).to receive(:inform!).with(text: 'Your subscription is past due. Update your credit card info at /subscribe?team_id=team_id.')
       subject.send(:run_callbacks, :subscription_past_due)
     end
   end
