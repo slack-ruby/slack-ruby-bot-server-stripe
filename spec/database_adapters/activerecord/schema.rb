@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative 'activerecord'
 
 ActiveRecord::Schema.define do

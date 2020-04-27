@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 describe SlackRubyBotServer::Stripe::Commands::Unsubscribe, vcr: { cassette_name: 'slack/user_info' } do

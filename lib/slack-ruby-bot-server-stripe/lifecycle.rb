@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 SlackRubyBotServer::Config.service_class.instance.on :starting do |team|
   begin
     team.check_stripe!
