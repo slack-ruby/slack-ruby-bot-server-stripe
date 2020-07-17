@@ -42,7 +42,7 @@ Define additional fields on your database.
 
 ##### Mongoid
 
-Additional fields from [models/mongoid.rb](lib/slack-ruby-bot-server/stripe/models/mongoid.rb) are automatically included.
+Additional fields from [models/mongoid.rb](lib/slack-ruby-bot-server-stripe/models/mongoid.rb) are automatically included.
 
 ##### ActiveRecord
 
