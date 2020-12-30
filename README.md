@@ -100,32 +100,7 @@ end
 
 #### Add Trial Link
 
-Your bot's help command should display trial text and subscription link. This is typically done in `lib/commands/help.rb`.
-
-```ruby
-class Help < SlackRubyBot::Commands::Base
-  HELP = <<-EOS.freeze
-```
-Sample bot.
-
-General
--------
-
-help               - get this helpful message
-
-```
-EOS
-
-  def self.call(client, data, _match)
-    client.say(channel: data.channel, text: [
-      HELP,
-      client.owner.reload.subscribed? ? nil : client.owner.trial_text
-    ].compact.join("\n"))
-
-    client.say(channel: data.channel, gif: 'help')
-  end
-end
-```
+Your bot's help command should display trial text and a subscription link using `team.trial_text`.
 
 ### Attributes
 
