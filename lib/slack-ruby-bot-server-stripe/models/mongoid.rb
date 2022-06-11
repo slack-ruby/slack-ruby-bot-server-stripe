@@ -11,7 +11,7 @@ module SlackRubyBotServer
 
         included do
           field :stripe_customer_id, type: String
-          field :subscribed, type: Boolean, default: false
+          field :subscribed, type: ::Mongoid::Boolean, default: false
           field :subscribed_at, type: DateTime
           field :subscription_expired_at, type: DateTime
           field :trial_informed_at, type: DateTime
