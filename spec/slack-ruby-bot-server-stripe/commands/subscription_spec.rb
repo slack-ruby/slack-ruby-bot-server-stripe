@@ -3,7 +3,7 @@
 require 'spec_helper'
 
 describe SlackRubyBotServer::Stripe::Commands::Subscription, vcr: { cassette_name: 'slack/user_info' } do
-  let(:app) { SlackRubyBotServer::Server.new(team: team) }
+  let(:app) { SlackRubyBotServer::RealTime::Server.new(team: team) }
   let(:client) { app.send(:client) }
   shared_examples_for 'subscription' do
     context 'on trial' do

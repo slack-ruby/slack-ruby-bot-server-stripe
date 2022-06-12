@@ -2,7 +2,9 @@ Slack Ruby Bot Server Stripe Extension
 ======================================
 
 [![Gem Version](https://badge.fury.io/rb/slack-ruby-bot-server-stripe.svg)](https://badge.fury.io/rb/slack-ruby-bot-server-stripe)
-[![Build Status](https://travis-ci.org/slack-ruby/slack-ruby-bot-server-stripe.svg?branch=master)](https://travis-ci.org/slack-ruby/slack-ruby-bot-server-stripe)
+[![mongodb](https://github.com/slack-ruby/slack-ruby-bot-server-stripe/actions/workflows/test-mongodb.yml/badge.svg)](https://github.com/slack-ruby/slack-ruby-bot-server-stripe/actions/workflows/test-mongodb.yml)
+[![postgresql](https://github.com/slack-ruby/slack-ruby-bot-server-stripe/actions/workflows/test-postgresql.yml/badge.svg)](https://github.com/slack-ruby/slack-ruby-bot-server-stripe/actions/workflows/test-postgresql.yml)
+[![rubocop](https://github.com/slack-ruby/slack-ruby-bot-server-stripe/actions/workflows/rubocop.yml/badge.svg)](https://github.com/slack-ruby/slack-ruby-bot-server-stripe/actions/workflows/rubocop.yml)
 
 A model extension to [slack-ruby-bot-server](https://github.com/slack-ruby/slack-ruby-bot-server) that enables trials and paid subscriptions for your bots using [Stripe](https://stripe.com).
 

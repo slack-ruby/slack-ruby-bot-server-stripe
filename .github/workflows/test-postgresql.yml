@@ -1,0 +1,36 @@
+name: test-postgresql
+
+on: [push, pull_request]
+
+jobs:
+  test-postgresql:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup Firefox
+        uses: browser-actions/setup-firefox@latest
+        with:
+          firefox-version: "54.0"
+      - name: Download geckodriver
+        uses: browser-actions/setup-geckodriver@latest
+        with:
+          geckodriver-version: "0.18.0"
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "2.6.2"
+      - uses: harmon758/postgresql-action@v1
+        with:
+          postgresql version: "14"
+          postgresql db: slack_ruby_bot_server_stripe__test
+          postgresql user: test
+          postgresql password: password
+      - name: Test
+        uses: GabrielBB/xvfb-action@v1
+        env:
+          DATABASE_ADAPTER: activerecord
+          DATABASE_URL: postgres://test:password@127.0.0.1:5432/slack_ruby_bot_server_stripe__test
+        with:
+          run: |
+            bundle install
+            bundle exec rake spec
