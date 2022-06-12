@@ -2,7 +2,7 @@
 
 require 'stripe'
 
-require 'slack-ruby-bot-server'
+require 'slack-ruby-bot-server-rtm'
 
 require_relative 'slack-ruby-bot-server-stripe/version'
 require_relative 'slack-ruby-bot-server-stripe/config'
