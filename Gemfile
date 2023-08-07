@@ -10,8 +10,7 @@ when 'mongoid' then
 when 'activerecord' then
   gem 'activerecord', '~> 5.0.0'
   gem 'otr-activerecord', '~> 1.2.1'
-  gem 'virtus'
-  gem 'cursor_pagination' # rubocop:disable Bundler/OrderedGems
+  gem 'pagy_cursor'
   gem 'pg'
 when nil
   warn "Missing ENV['DATABASE_ADAPTER']."
@@ -29,6 +28,7 @@ group :development, :test do
   gem 'faker'
   gem 'hyperclient'
   gem 'rack-test'
+  gem 'rackup'
   gem 'rake'
   gem 'rspec'
   gem 'rubocop', '0.81.0'
@@ -37,8 +37,5 @@ group :development, :test do
   gem 'timecop'
   gem 'vcr'
   gem 'webmock'
-end
-
-group :test do
-  gem 'slack-ruby-danger', '~> 0.1.0', require: false
+  gem 'webrick'
 end

@@ -8,6 +8,51 @@ Slack Ruby Bot Server Stripe Extension
 
 A model extension to [slack-ruby-bot-server](https://github.com/slack-ruby/slack-ruby-bot-server) that enables trials and paid subscriptions for your bots using [Stripe](https://stripe.com).
 
+# Table of Contents
+
+- [Sample](#sample)
+- [Usage](#usage)
+  - [Gemfile](#gemfile)
+  - [Configure](#configure)
+  - [Database Schema](#database-schema)
+    - [Mongoid](#mongoid)
+    - [ActiveRecord](#activerecord)
+  - [Implement Callbacks](#implement-callbacks)
+  - [Add Trial Link](#add-trial-link)
+- [Attributes](#attributes)
+  - [stripe_customer_id](#stripe_customer_id)
+  - [subscribed](#subscribed)
+  - [subscription_expired_at](#subscription_expired_at)
+  - [trial_informed_at](#trial_informed_at)
+  - [trial_ends_at](#trial_ends_at)
+- [Methods](#methods)
+  - [trial_text](#trial_text)
+  - [subscribed_text](#subscribed_text)
+  - [unsubscribed_text](#unsubscribed_text)
+  - [subscription_expired_text](#subscription_expired_text)
+  - [subscription_past_due_text](#subscription_past_due_text)
+  - [trial_expired?](#trial_expired)
+  - [remaining_trial_days](#remaining_trial_days)
+  - [subscription_expired?](#subscription_expired)
+  - [tags](#tags)
+  - [active_stripe_subscription](#active_stripe_subscription)
+  - [active_stripe_subscription?](#active_stripe_subscription-1)
+  - [subscription_text(params)](#subscription_textparams)
+  - [subscribe!(params)](#subscribeparams)
+  - [unsubscribe!](#unsubscribe)
+  - [update_subscription!(params)](#update_subscriptionparams)
+- [Lifecycle Methods](#lifecycle-methods)
+  - [check_subscription!](#check_subscription)
+  - [check_trials!](#check_trials)
+- [API Endpoints](#api-endpoints)
+  - [POST /subscriptions](#post-subscriptions)
+- [HTML Views](#html-views)
+  - [/subscribe](#subscribe)
+- [Slack Commands](#slack-commands)
+  - [subscription](#subscription)
+  - [unsubscribe](#unsubscribe-1)
+- [Copyright & License](#copyright--license)
+
 ### Sample
 
 See [slack-ruby/slack-ruby-bot-server-stripe-sample](https://github.com/slack-ruby/slack-ruby-bot-server-stripe-sample) for a working sample.
