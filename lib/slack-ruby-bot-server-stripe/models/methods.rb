@@ -37,7 +37,7 @@ module SlackRubyBotServer
 
         def subscription_text(options = { include_admin_info: false })
           subscription_text = []
-          if active_stripe_subscription?
+          if stripe_subscriptions&.any?
             subscription_text << stripe_customer_text
             subscription_text.concat(stripe_customer_subscriptions_info)
             if options[:include_admin_info]
@@ -117,6 +117,12 @@ module SlackRubyBotServer
           stripe_customer.subscriptions.detect do |subscription|
             subscription.status == 'active' && !subscription.cancel_at_period_end
           end
+        end
+
+        def stripe_subscriptions
+          return unless stripe_customer
+
+          stripe_customer.subscriptions
         end
 
         def trial_ends_at
@@ -270,8 +276,13 @@ module SlackRubyBotServer
         def stripe_customer_subscriptions_info
           stripe_customer.subscriptions.map do |subscription|
             amount = ActiveSupport::NumberHelper.number_to_currency(subscription.plan.amount.to_f / 100)
-            current_period_end = Time.at(subscription.current_period_end).strftime('%B %d, %Y')
-            "Subscribed to #{subscription.plan.name} (#{amount}), will#{subscription.cancel_at_period_end ? ' not' : ''} auto-renew on #{current_period_end}."
+            if subscription.status == 'active'
+              current_period_end = Time.at(subscription.current_period_end).strftime('%B %d, %Y')
+              "Subscribed to #{subscription.plan.name} (#{amount}), will#{subscription.cancel_at_period_end ? ' not' : ''} auto-renew on #{current_period_end}."
+            else
+              subscription_created_at = Time.at(subscription.created).strftime('%B %d, %Y')
+              "#{subscription.status.titleize} subscription created #{subscription_created_at} to #{subscription.plan.name} (#{amount})."
+            end
           end
         end
 

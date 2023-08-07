@@ -11,14 +11,15 @@ jobs:
       - name: Setup Firefox
         uses: browser-actions/setup-firefox@latest
         with:
-          firefox-version: "54.0"
+          firefox-version: "108.0"
       - name: Download geckodriver
         uses: browser-actions/setup-geckodriver@latest
         with:
-          geckodriver-version: "0.18.0"
+          geckodriver-version: '0.32.0'
+      - run: geckodriver --version
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "2.6.2"
+          ruby-version: "2.7.7"
       - uses: harmon758/postgresql-action@v1
         with:
           postgresql version: "14"

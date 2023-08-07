@@ -37,8 +37,30 @@ describe SlackRubyBotServer::Stripe::Commands::Subscription, vcr: { cassette_nam
           team.update_attributes!(subscribed: true, stripe_customer_id: customer['id'])
         end
         it 'displays subscription info' do
-          subscription_text = team.subscription_text(include_admin_info: true)
+          customer_since = Time.at(customer.created).strftime('%B %d, %Y')
+          current_period_end = Time.at(team.active_stripe_subscription.current_period_end).strftime('%B %d, %Y')
+          subscription_text = [
+            "Customer since #{customer_since}.\nSubscribed to Plan ($29.99), will auto-renew on #{current_period_end}.",
+            'On file Visa card, Johnny App ending with 4242, expires 9/2018.',
+            "Update your credit card info at /subscribe?team_id=#{team.team_id}."
+          ].join("\n")
           expect(message: "#{SlackRubyBot.config.user} subscription", user: 'U007').to respond_with_slack_message subscription_text
+        end
+        context 'past due subscription' do
+          before do
+            customer.subscriptions.data.first['status'] = 'past_due'
+            allow(Stripe::Customer).to receive(:retrieve).and_return(customer)
+          end
+          it 'displays subscription info' do
+            customer_since = Time.at(customer.created).strftime('%B %d, %Y')
+            subscription_text = [
+              "Customer since #{customer_since}.",
+              'Past Due subscription created November 03, 2016 to Plan ($29.99).',
+              'On file Visa card, Johnny App ending with 4242, expires 9/2018.',
+              "Update your credit card info at /subscribe?team_id=#{team.team_id}."
+            ].join("\n")
+            expect(message: "#{SlackRubyBot.config.user} subscription", user: 'U007').to respond_with_slack_message subscription_text
+          end
         end
       end
     end
