@@ -342,6 +342,16 @@ describe SlackRubyBotServer::Stripe::Models do
           team.check_subscription!
         end
       end
+      context 'with no active subscription' do
+        before do
+          team.send(:stripe_customer).subscriptions = []
+        end
+        it 'invokes' do
+          expect(team).to_not receive(:subscription_past_due!)
+          expect(team).to receive(:subscription_expired!).and_call_original
+          team.check_subscription!
+        end
+      end
     end
   end
   context 'recommended text' do

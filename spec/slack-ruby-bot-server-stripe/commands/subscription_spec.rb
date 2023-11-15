@@ -62,6 +62,20 @@ describe SlackRubyBotServer::Stripe::Commands::Subscription, vcr: { cassette_nam
             expect(message: "#{SlackRubyBot.config.user} subscription", user: 'U007').to respond_with_slack_message subscription_text
           end
         end
+        context 'no active subscription' do
+          before do
+            customer.subscriptions.data = []
+            allow(Stripe::Customer).to receive(:retrieve).and_return(customer)
+          end
+          it 'displays subscription info' do
+            customer_since = Time.at(customer.created).strftime('%B %d, %Y')
+            subscription_text = [
+              "Customer since #{customer_since}.",
+              'No active subscriptions.'
+            ].join("\n")
+            expect(message: "#{SlackRubyBot.config.user} subscription", user: 'U007').to respond_with_slack_message subscription_text
+          end
+        end
       end
     end
   end
