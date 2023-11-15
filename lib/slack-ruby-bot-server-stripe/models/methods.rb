@@ -37,13 +37,17 @@ module SlackRubyBotServer
 
         def subscription_text(options = { include_admin_info: false })
           subscription_text = []
-          if stripe_subscriptions&.any?
+          if stripe_customer
             subscription_text << stripe_customer_text
-            subscription_text.concat(stripe_customer_subscriptions_info)
-            if options[:include_admin_info]
-              subscription_text.concat(stripe_customer_invoices_info)
-              subscription_text.concat(stripe_customer_sources_info)
-              subscription_text << update_cc_text
+            if stripe_subscriptions&.any?
+              subscription_text.concat(stripe_customer_subscriptions_info)
+              if options[:include_admin_info]
+                subscription_text.concat(stripe_customer_invoices_info)
+                subscription_text.concat(stripe_customer_sources_info)
+                subscription_text << update_cc_text
+              end
+            else
+              subscription_text << 'No active subscriptions.'
             end
           elsif subscribed && subscribed_at
             subscription_text << subscriber_text
@@ -184,12 +188,16 @@ module SlackRubyBotServer
           raise Errors::NotSubscribedError unless subscribed?
           raise Errors::MissingStripeCustomerError unless stripe_customer
 
-          stripe_customer.subscriptions.each do |subscription|
-            case subscription.status
-            when 'past_due'
-              subscription_past_due!
-            when 'canceled', 'unpaid'
-              subscription_expired!
+          if stripe_customer.subscriptions.none?
+            subscription_expired!
+          else
+            stripe_customer.subscriptions.each do |subscription|
+              case subscription.status
+              when 'past_due'
+                subscription_past_due!
+              when 'canceled', 'unpaid'
+                subscription_expired!
+              end
             end
           end
         end
