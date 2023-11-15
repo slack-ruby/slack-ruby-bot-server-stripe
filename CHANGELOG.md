@@ -1,5 +1,9 @@
 ### Changelog
 
+#### 0.2.1 (Next)
+
+* Your contribution here.
+
 #### 0.2.0 (2023/11/15)
 
 * [#16](https://github.com/slack-ruby/slack-ruby-bot-server-stripe/pull/16): Subscription expired without any active subscriptions - [@dblock](https://github.com/dblock).
